@@ -32,7 +32,7 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
         self,
         base_url: str = "http://10.225.119.170:8000/screening/v1",
         api_key: str = "mock-api-key",
-        institution_id: str = "KANJI",
+        institution_id: str = "ULTIMATE_PAY",
         source_system: str = "TAHSEEL",
         is_sandbox: bool = True,
         timeout: int = 10
@@ -56,7 +56,7 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
     ) -> Dict[str, Any]:
         """
         بناء وإرسال حمولة فحص الكيان التجاري (المنشأة المفوترة)
-        الصفحات 2-5 من وثيقة المتطلبات
+        متوافقة تماماً مع وثيقة المتطلبات و Swagger المباشر للسيرفر 10.225.119.170
         """
         req_id = client_request_id or f"TAH-SCR-{uuid.uuid4().hex[:12].upper()}"
 
@@ -70,6 +70,14 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
         email = (biller.email if biller else "") or ""
         ext_id = (biller.biller_code if biller else cr) or f"EXT-{uuid.uuid4().hex[:8]}"
 
+        identifiers = []
+        if cr:
+            identifiers.append({"id_type": "REGISTRATION_ID", "id_value": cr})
+        if tax:
+            identifiers.append({"id_type": "TAX_ID", "id_value": tax})
+        if lic:
+            identifiers.append({"id_type": "OTHER", "id_value": lic})
+
         payload = {
             "entity_type": "ORGANIZATION",
             "entity_relation": "CUSTOMER",
@@ -78,17 +86,25 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
             "source_system": self.source_system,
             "institution_id": self.institution_id,
             "client_request_id": req_id,
+            "metadata": {
+                "biller_code": ext_id,
+                "submitted_by": "tahseel_onboarding_system"
+            },
             "payload": {
                 "name": name,
                 "country": country,
                 "address": address,
                 "entity_sub_type": (biller.entity_sub_type if biller else "LIMITED_LIABILITY_COMPANY") or "LIMITED_LIABILITY_COMPANY",
+                "channel": "ONBOARDING",
+                "source_system": self.source_system,
+                "external_entity_id": ext_id,
                 "id_type1": "REGISTRATION_ID",
                 "id_value1": cr,
                 "id_type2": "TAX_ID",
                 "id_value2": tax,
                 "id_type3": "OTHER",
                 "id_value3": lic,
+                "identifiers": identifiers,
                 "phone_no": phone,
                 "email": email,
                 "metadata": {
@@ -116,7 +132,7 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
     ) -> Dict[str, Any]:
         """
         بناء وإرسال حمولة فحص الأشخاص المرتبطين مع ربطهم بالكيان الأساسي
-        (primary_entity_id) وفق الصفحات 3-5 من الوثيقة
+        (primary_entity_id) وفق الصفحات 3-5 من الوثيقة ومواصفات السيرفر
         """
         req_id = client_request_id or f"TAH-SCR-{uuid.uuid4().hex[:12].upper()}"
 
@@ -138,6 +154,10 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
         }
         relation = role_mapping.get(party.role if party else 'OWNER', 'DIRECTOR')
 
+        identifiers = []
+        if id_val:
+            identifiers.append({"id_type": id_type, "id_value": id_val})
+
         payload = {
             "entity_type": "INDIVIDUAL",
             "entity_relation": relation,
@@ -148,14 +168,25 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
             "source_system": self.source_system,
             "institution_id": self.institution_id,
             "client_request_id": req_id,
+            "metadata": {
+                "role": party.role if party else "OWNER",
+                "equity_percentage": float(party.equity_percentage) if party else 0.0,
+                "is_pep": party.is_pep if party else False,
+                "is_ubo": party.is_ubo if party else False
+            },
             "payload": {
                 "name": full_name,
                 "dob": dob,
                 "country": country,
                 "gender": gender,
                 "address": party.national_address if party else "",
+                "channel": "ONBOARDING",
+                "source_system": self.source_system,
+                "external_entity_id": relation_id,
+                "primary_entity_id": primary_entity_id,
                 "id_type1": id_type,
                 "id_value1": id_val,
+                "identifiers": identifiers,
                 "phone_no": party.phone if party else "",
                 "email": party.email if party else "",
                 "metadata": {
@@ -180,38 +211,39 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
     def evaluate_transaction(self, txn_payload: Dict[str, Any]) -> Dict[str, Any]:
         """
         إرسال معاملة مالية لمحرك EFRM لتقييم المخاطر لحظياً (SYNC) أو غير متزامن (ASYNC)
-        الصفحات 8-13 من وثيقة المتطلبات
+        مطابقة للمعايير المعتمدة في ultimate_pay_pg_card_txn_parameters.xlsx
         """
         payload = {
             "payload": {
                 "institution_id": txn_payload.get("institution_id", self.institution_id),
-                "source_system": txn_payload.get("source_system", "CARD_TRANSACTION"),
+                "source_system": txn_payload.get("source_system", "PG_SWITCH"),
+                "fact": txn_payload.get("fact", "card_txn"),
                 "mode": txn_payload.get("mode", TxnMode.SYNC),
                 "channel": txn_payload.get("channel", TxnChannel.POS),
                 "source_txn_id": txn_payload.get("source_txn_id", f"TXN-{uuid.uuid4().hex[:10]}"),
                 "request_id": txn_payload.get("request_id", f"REQ-{uuid.uuid4().hex[:10]}"),
                 "txnreqtrandate": txn_payload.get("txnreqtrandate", timezone.now().strftime("%y%m%d%H%M%S")),
                 "pan": txn_payload.get("pan", "4111111111111111"),
-                "processing_code": txn_payload.get("processing_code", "010000"),
+                "processing_code": txn_payload.get("processing_code", "000000"),
                 "amount": txn_payload.get("amount", 0),
                 "stan": txn_payload.get("stan", "123456"),
                 "local_time": txn_payload.get("local_time", timezone.now().strftime("%H%M%S")),
                 "local_date": txn_payload.get("local_date", timezone.now().strftime("%m%d")),
                 "mcc": txn_payload.get("mcc", "5411"),
-                "country_code": txn_payload.get("country_code", "356"),
+                "country_code": txn_payload.get("country_code", "886"),
                 "pos_entry_mode": txn_payload.get("pos_entry_mode", "051"),
                 "pos_condition_code": txn_payload.get("pos_condition_code", "00"),
                 "pin_capture_code": txn_payload.get("pin_capture_code", "12"),
-                "acquiring_institution_id": txn_payload.get("acquiring_institution_id", "ACQ001"),
-                "forwarding_institution_id": txn_payload.get("forwarding_institution_id", "FWD001"),
+                "acquiring_institution_id": txn_payload.get("acquiring_institution_id", "ACQ_ULTIMATE"),
+                "forwarding_institution_id": txn_payload.get("forwarding_institution_id", "FWD_ULTIMATE"),
                 "track2_data": txn_payload.get("track2_data", ""),
                 "rrn": txn_payload.get("rrn", f"{uuid.uuid4().int % 1000000000000:012d}"),
                 "authorization_id": txn_payload.get("authorization_id", "AUTH001"),
                 "response_code": txn_payload.get("response_code", "00"),
                 "terminal_id": txn_payload.get("terminal_id", "TERM001"),
                 "customer_id": txn_payload.get("customer_id", "CUST000001"),
-                "merchant_name_location": txn_payload.get("merchant_name_location", "TAHSEEL MERCHANT YE"),
-                "currency_code": txn_payload.get("currency_code", "356")
+                "merchant_name_location": txn_payload.get("merchant_name_location", "TAHSEEL MERCHANT SANA'A YE"),
+                "currency_code": txn_payload.get("currency_code", "886")
             }
         }
 
