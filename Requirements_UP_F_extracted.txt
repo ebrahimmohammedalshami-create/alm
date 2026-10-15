@@ -1,0 +1,537 @@
+--- PAGE 1 ---
+Screening Flow: 
+ 
+
+
+--- PAGE 2 ---
+Screening CONFIG Requirements: 
+1. Source system code: 
+Sample: Merchant Onboarding System
+2. Entity types they will send 
+Sample: ORGANIZATION, MERCHANT, LIMITED_LIABILITY_COMPANY
+3. Relations under each entity 
+Sample: 
+ORGANIZATION -> CUSTOMER
+ORGANIZATION -> DIRECTOR
+ORGANIZATION -> AUTHORIZED_SIGNATORY
+ORGANIZATION -> POC
+4. Field mapping from their system to our API ﬁelds 
+SCREENING DATA POINTS REQUIRED: 
+1. Source System 
+Required / Optional: Required
+What to provide: Upstream system sending the screening request, such as CBS, 
+MMS, LOS, API, or UI.
+2. Channel 
+Required / Optional: Required
+What to provide: Business journey where screening is triggered, such as 
+ONBOARDING, PERIODIC_REVIEW, or TRANSACTION.
+3. Institution ID 
+Required / Optional: Required
+What to provide: Client/institution code under which screening should be 
+performed.
+4. Entity Type 
+Required / Optional: Required
+What to provide: Type of entity being screened, such as ORGANIZATION, 
+MERCHANT, LIMITED_LIABILITY_COMPANY , NPO_NGO.
+5. Entity Relation 
+Required / Optional: Required
+What to provide: Role of the entity, such as CUSTOMER, DIRECTOR, POC, or 
+AUTHORIZED_SIGNATORY .
+6. External Entity ID 
+Required / Optional: Required for primary screening
+What to provide: Unique entity/customer ID from the client’s source system.
+
+
+--- PAGE 3 ---
+7. Primary Entity ID 
+Required / Optional: Required for secondary screening
+What to provide: ID of the already-screened primary entity under which related 
+entities are screened.
+8. Relation Entity ID 
+Required / Optional: Optional
+What to provide: Client-side ID for a related entity, such as director ID, POC ID, or 
+signatory ID.
+9. Name 
+Required / Optional: Required
+What to provide: Legal name or full name of the person, merchant, organization, or 
+related party.
+10. Date of Birth 
+Required / Optional: Required for individuals/related persons
+What to provide: Date of birth for individuals or related persons, preferably in 
+YYYY-MM-DD format.
+11. Country / Nationality 
+Required / Optional: Required
+What to provide: Country, nationality, residence country, or incorporation country, 
+preferably ISO alpha-2 code like IN, US, AE.
+12. Address 
+Required / Optional: Optional but recommended
+What to provide: Residential, registered, or operating address used as supporting 
+screening evidence.
+13. Gender 
+Required / Optional: Optional
+What to provide: Gender of the individual, such as MALE or FEMALE, when 
+available.
+14. Entity Sub Type 
+Required / Optional: Optional
+What to provide: More speciﬁc organization category, such as LLC, joint venture, 
+NGO, or government body.
+15. Identiﬁcation Type 1 
+Required / Optional: Required
+What to provide: Primary identiﬁcation document type, such as PASSPORT, 
+NATIONAL_ID, REGISTRATION_ID, TAX_ID, or OTHER.
+16. Identiﬁcation Number 1 
+
+--- PAGE 4 ---
+Required / Optional: Required
+What to provide: Primary identiﬁcation document number/value.
+17. Identiﬁcation Type 2 
+Required / Optional: Optional
+What to provide: Second identiﬁcation document type, if available.
+18. Identiﬁcation Number 2 
+Required / Optional: Optional
+What to provide: Second identiﬁcation document number/value, if available.
+19. Identiﬁcation Type 3 
+Required / Optional: Optional
+What to provide: Third identiﬁcation document type, if available.
+20. Identiﬁcation Number 3 
+Required / Optional: Optional
+What to provide: Third identiﬁcation document number/value, if available.
+21. Phone Number 
+Required / Optional: Optional
+What to provide: Phone number associated with the entity or related person.
+22. Email 
+Required / Optional: Optional
+What to provide: Email address associated with the entity or related person.
+23. Metadata 
+Required / Optional: Optional
+What to provide: Additional client-side context such as batch ID, branch ID, user 
+ID, workﬂow ID, or session ID.
+24. Client Request ID 
+Required / Optional: Required for S2S/API
+What to provide: Client-generated unique request reference used for status 
+lookup, reconciliation, and idempotent tracking.
+ 
+
+--- PAGE 5 ---
+Sample Payload Data: 
+Request: 
+{
+  "entity_type": "ORGANIZATION",
+  "entity_relation": "CUSTOMER",
+  "external_entity_id": "ORG-CLIENT-0001",
+  "channel": "ONBOARDING",
+  "source_system": "CBS",
+  "institution_id": "KANJI",
+  "client_request_id": "CBS-SCR-REQ-0001",
+  "payload": {
+    "name": "Example Trading LLC",
+    "country": "AE",
+    "address": "Office 1204, Business Bay, Dubai, United Arab 
+Emirates",
+    "entity_sub_type": "LIMITED_LIABILITY_COMPANY",
+    "id_type1": "REGISTRATION_ID",
+    "id_value1": "AE-DXB-REG-123456",
+    "id_type2": "TAX_ID",
+    "id_value2": "TRN-100234567800003",
+    "id_type3": "OTHER",
+    "id_value3": "CHAMBER-CERT-998877",
+    "phone_no": "+971501234567",
+    "email": "compliance@exampletrading.ae",
+    "metadata": {
+      "branch_id": "DXB-001",
+      "workflow_id": "ONB-2026-0001",
+      "submitted_by": "relationship_manager_01"
+    }
+  }
+}
+
+--- PAGE 6 ---
+Response:
+{
+  "request_id": "8d8c7a62-7a9f-4f51-8c0e-3f0d1d0c91a2",
+  "client_request_id": "CBS-SCR-REQ-0001",
+  "external_entity_id": "ORG-CLIENT-0001",
+  "entity_type": "ORGANIZATION",
+  "entity_relation": "CUSTOMER",
+  "channel": "ONBOARDING",
+  "source_system": "CBS",
+  "institution_id": "KANJI",
+  "decision": "ESCALATE",
+  "risk_band": "HIGH",
+  "overall_risk_score": 1000,
+  "matched": true,
+  "hit_count": 2,
+  "alert_generated": true,
+  "case_generated": true,
+  "case_id": "CASE-20260810-000001",
+  "message": "Potential screening match found. Compliance 
+review required.",
+  "matches": [
+    {
+      "match_id": 101,
+      "list_source": "OFAC",
+      "matched_name": "EXAMPLE TRADING LLC",
+      "match_score": 96.5,
+      "risk_score": 1000,
+      "risk_band": "HIGH",
+      "match_type": "NAME",
+      "matched_fields": {
+        "name": true,
+        "country": true,
+        "identifier": true
+      }
+    }
+  ],
+  "recommended_action": "HOLD_FOR_REVIEW",
+  "screened_at": "2026-08-10T14:30:10Z"
+}
+
+--- PAGE 7 ---
+[EMPTY PAGE]
+
+--- PAGE 8 ---
+Transaction Flow: 
+ 
+Transaction flow from source request to decision, callback, case handling, and final action update. 
+2)TRANSACTION CONFIG REQUIREMENTS: 
+1.Source systems 
+Example :CARD_TRANSACTION, DEVICE_EVENT, FOREX_TRANSACTION
+
+
+--- PAGE 9 ---
+2.Facts 
+Example: card_txn, sign3_device_data, kanji_device_data, 
+bugs_device_data, forex_txn
+3.Channels 
+Example: For CARD_TRANSACTION / card_txn: ATM, POS, ECOM
+4.Mode 
+SYNC, ASYNC
+5.Incoming payload ﬁelds for card_txn: 
+institution_id,  
+source_system, mode,  
+channel,  
+source_txn_id,  
+request_id,  
+txnreqtrandate,  
+pan,  
+processing_code,  
+amount,  
+stan,  
+local_time,  
+local_date,  
+mcc,  
+country_code,  
+pos_entry_mode,  
+pos_condition_code,  
+pin_capture_code,  
+acquiring_institution_id,  
+forwarding_institution_id,  
+track2_data,  
+rrn,  
+authorization_id,  
+response_code,  
+terminal_id,  
+customer_id,  
+merchant_name_location,  
+currency_code
+
+--- PAGE 10 ---
+6.SYNC SAMPLE PAYLOAD:
+{
+  "payload": {
+    "institution_id": "KANJI",
+    "source_system": "CARD_TRANSACTION",
+    "mode": "SYNC",
+    "channel": “ECOM",
+    "source_txn_id": "SRC-SYNC-000001",
+    "request_id": "REQ-SYNC-000001",
+    "txnreqtrandate": "260810143000",
+    "pan": "4111111111111111",
+    "processing_code": "010000",
+    "amount": 3200,
+    "stan": "123456",
+    "local_time": "143000",
+    "local_date": "0810",
+    "mcc": "5411",
+    "country_code": "356",
+    "pos_entry_mode": "051",
+    "pos_condition_code": "00",
+    "pin_capture_code": "12",
+    "acquiring_institution_id": "ACQ001",
+    "forwarding_institution_id": "FWD001",
+    "track2_data": "4111111111111111=27081230000012345678",
+    "rrn": "626081000001",
+    "authorization_id": "",
+    "response_code": "",
+    "terminal_id": "TERM001",
+    "customer_id": "CUST000001",
+    "merchant_name_location": "TEST MERCHANT CITY IN",
+    "currency_code": "356"
+  }
+}
+
+--- PAGE 11 ---
+7.ASYNC SAMPLE PAYLOAD:
+{
+  "payload": {
+    "institution_id": "KANJI",
+    "source_system": "CARD_TRANSACTION",
+    "mode": "ASYNC",
+    "channel": "POS",
+    "source_txn_id": "SRC-SYNC-000001",
+    "request_id": "REQ-ASYNC-000001",
+    "txnreqtrandate": "260810143000",
+    "pan": "4111111111111111",
+    "processing_code": "010000",
+    "amount": 3200,
+    "stan": "123456",
+    "local_time": "143000",
+    "local_date": "0810",
+    "mcc": "5411",
+    "country_code": "356",
+    "pos_entry_mode": "051",
+    "pos_condition_code": "00",
+    "pin_capture_code": "12",
+    "acquiring_institution_id": "ACQ001",
+    "forwarding_institution_id": "FWD001",
+    "track2_data": "4111111111111111=27081230000012345678",
+    "rrn": "626081000001",
+    "authorization_id": "AUTH001",
+    "response_code": "00",
+    "terminal_id": "TERM001",
+    "customer_id": "CUST000001",
+    "merchant_name_location": "TEST MERCHANT CITY IN",
+    "currency_code": "356"
+  }
+}
+
+--- PAGE 12 ---
+SYNC Response Example
+For SYNC mode, EFRM returns the decision immediately in the API response.
+{
+  "request_id": "REQ-SYNC-000001",
+  "source_txn_id": "SRC-SYNC-000001",
+  "institution_id": "KANJI",
+  "source_system": "CARD_TRANSACTION",
+  "fact": "card_txn",
+  "mode": "SYNC",
+  "channel": "ECOM",
+  "decision": "ALLOW",
+  "risk_score": 120,
+  "risk_severity": "LOW",
+  "policy_code": "POLICY_1",
+  "matched_rule_count": 0,
+  "alert_generated": false,
+  "signals": [],
+  "message": "Transaction allowed"
+}
+BLOCK Response Example
+{
+  "request_id": "REQ-SYNC-000002",
+  "source_txn_id": "SRC-SYNC-000002",
+  "institution_id": "KANJI",
+  "source_system": "CARD_TRANSACTION",
+  "fact": "card_txn",
+  "mode": "SYNC",
+  "channel": "POS",
+  "decision": "BLOCK",
+  "risk_score": 850,
+  "risk_severity": "CRITICAL",
+  "policy_code": "POLICY_1",
+  "matched_rule_count": 2,
+  "alert_generated": true,
+  "signals": [
+    {
+      "rule_code": "POS_HIGH_VALUE_TXN",
+      "signal_code": "POS_HIGH_VALUE_TXN",
+      "severity": "CRITICAL",
+      "score": 850,
+      "description": "High value POS transaction detected"
+
+--- PAGE 13 ---
+    }
+  ],
+  "message": "Transaction blocked due to high risk"
+}
+ASYNC Response Example
+For ASYNC mode, the API can accept the request ﬁrst and later notify the source system through 
+webhook/callback.
+{
+  "request_id": "REQ-ASYNC-000001",
+  "source_txn_id": "SRC-SYNC-000001",
+  "institution_id": "KANJI",
+  "source_system": "CARD_TRANSACTION",
+  "fact": "card_txn",
+  "mode": "ASYNC",
+  "status": "ACCEPTED",
+  "message": "Transaction received for asynchronous risk 
+evaluation"
+8. Decision Response Format
+After rule execution, EFRM returns or sends a decision result. The same decision structure can be 
+used for both SYNC response and ASYNC webhook/callback.
+Decision Values
+}
+Decisio
+n
+Meaning Expected Client Action
+ALLOWTransaction is low risk and can proceed Approve / continue transaction
+BLOCKTransaction is high risk and should not proceed Decline / stop transaction
+REVIE
+WTransaction requires analyst review Hold, review, or process as per client policy
+STEPU
+PTransaction requires additional verificationTrigger OTP, PIN, biometric, or challenge flow
+
+--- PAGE 14 ---
+9. Action and Callback/Webhook Format
+Actions deﬁne what EFRM or the client should do after the decision is generated.
+Action Types
+Decision to Action Mapping
+Action Type When Used Description
+RETURN_SYNC_RES
+PONSE SYNC mode Return decision immediately in transaction API response
+SEND_WEBHOOKASYNC mode or post-case update Send decision/action result to client callback URL
+CREATE_ALERTRisky transaction Create alert in EFRM alert queue
+CREATE_CASEReview/block transactionCreate or link alert to a case
+STEPUP_REQUIREDMedium-risk transactionAsk client system to perform OTP/PIN/biometric/challenge
+BLOCK_TRANSACTI
+ON
+High/critical risk 
+transaction
+Ask client/source system to decline or stop 
+transaction
+MARK_FOR_REVIEWReview-required transaction Mark transaction for analyst or compliance review
+LOG_ONLY Low risk or shadow modeStore result without alert/case/action
+ModeDecision EFRM Action Source System Action
+SYNCALLOWReturn allow response Proceed with transaction
+SYNCBLOCKReturn block response, create alert/case if configured Decline transaction
+SYNCREVIEWReturn review response, create alert/case Hold or process as per client policy
+SYNCSTEPUPReturn step-up response Trigger OTP/PIN/challenge
+ASYN
+C
+ALLO
+WStore result, optionally send webhook Record safe/low-risk result
+ASYN
+C
+BLOC
+KCreate alert/case and send webhook Take post-transaction action as per policy
+ASYN
+C
+REVI
+EWCreate alert/case and send webhook Review transaction/customer
+
+--- PAGE 15 ---
+Webhook / Callback Request Format
+EFRM can send the ﬁnal decision to the source system using the client-provided callback URL.
+{
+  "event_type": "TRANSACTION_DECISION",
+  "event_id": "EVT-20260810-000001",
+  "event_time": "2026-08-10T14:30:10Z",
+  "institution_id": "KANJI",
+  "source_system": "CARD_TRANSACTION",
+  "fact": "card_txn",
+  "mode": "ASYNC",
+  "channel": "POS",
+  "request_id": "REQ-ASYNC-000001",
+  "source_txn_id": "SRC-SYNC-000001",
+  "decision": "BLOCK",
+  "risk_score": 850,
+  "risk_severity": "CRITICAL",
+  "policy_code": "POLICY_1",
+  "matched_rule_count": 2,
+  "alert_generated": true,
+  "case_created": true,
+  "case_id": "CASE-20260810-000001",
+  "signals": [
+    {
+      "rule_code": "POS_HIGH_VALUE_TXN",
+      "signal_code": "POS_HIGH_VALUE_TXN",
+      "severity": "CRITICAL",
+      "score": 850,
+      "description": "High value POS transaction detected"
+    }
+  ],
+  "recommended_action": "BLOCK_TRANSACTION",
+  "message": "Transaction blocked due to high risk"
+}
+Webhook / Callback Response Expected from Source System
+The source system should acknowledge that it received the webhook.
+{
+  "event_id": "EVT-20260810-000001",
+  "source_txn_id": "SRC-SYNC-000001",
+  "status": "RECEIVED",
+ASYN
+C
+STEP
+UPCreate alert or send webhook Apply follow-up verification if applicable
+
+--- PAGE 16 ---
+  "received_at": "2026-08-10T14:30:12Z",
+  "message": "Decision received successfully"
+}
+Case Action Callback Format
+If a case is created and later closed after analyst review, EFRM can send the ﬁnal case action/update 
+to the source system.
+{
+  "event_type": "CASE_ACTION_UPDATE",
+  "event_id": "EVT-20260810-000002",
+  "event_time": "2026-08-10T15:10:00Z",
+  "institution_id": "KANJI",
+  "source_system": "CARD_TRANSACTION",
+  "source_txn_id": "SRC-SYNC-000001",
+  "case_id": "CASE-20260810-000001",
+  "case_status": "CLOSED",
+  "final_action": "CONFIRMED_FRAUD",
+  "decision": "BLOCK",
+  "remarks": "Analyst confirmed suspicious transaction 
+pattern",
+  "message": "Case closed and final action recorded"
+}
+Client Conﬁguration Needed
+Configuration What Client Should Provide
+Supported transaction modesSYNC, ASYNC, or BOTH
+Supported channels Example: ATM, POS, ECOM
+Callback/webhook URL Endpoint where EFRM should send async decisions and case updates
+Webhook authentication 
+method API key, bearer token, mTLS, or signed payload
+Decision mapping How client maps ALLOW, BLOCK, REVIEW, STEPUP internally
+Response code mapping Client-specific codes for allow/block/review/step-up
+Step-up method OTP, PIN, biometric, device challenge, or other method
+Case/alert preference Whether EFRM should auto-create alerts/cases for block/review decisions
+Retry policy Number of webhook retries and retry interval
+Timeout policy Maximum wait time for webhook acknowledgement
+
+--- PAGE 17 ---
+Decision Callback Sample: 
+{
+  "event_type": "TRANSACTION_DECISION",
+  "event_id": "EVT-20260810-000001",
+  "event_time": "2026-08-10T14:30:10Z",
+  "institution_id": "KANJI",
+  "source_system": "CARD_TRANSACTION",
+  "fact": "card_txn",
+  "mode": "ASYNC",
+  "channel": "POS",
+  "request_id": "REQ-ASYNC-000001",
+  "source_txn_id": "SRC-SYNC-000001",
+  "decision": "BLOCK",
+  "risk_score": 850,
+  "risk_severity": "CRITICAL",
+  "policy_code": "POLICY_1",
+  "matched_rule_count": 2,
+  "alert_generated": true,
+  "case_created": true,
+  "case_id": "CASE-20260810-000001",
+  "signals": [
+    {
+      "rule_code": "POS_HIGH_V ALUE_TXN",
+
+--- PAGE 18 ---
+      "signal_code": "POS_HIGH_V ALUE_TXN",
+      "severity": "CRITICAL",
+      "score": 850,
+      "description": "High value POS transaction detected"
+    }
+  ],
+  "recommended_action": "BLOCK_TRANSACTION",
+  "message": "Transaction blocked due to high risk"
+}
