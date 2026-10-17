@@ -30,14 +30,18 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
 
     def __init__(
         self,
-        base_url: str = "http://10.225.119.170:8000/screening/v1",
+        screening_base_url: str = "http://10.225.119.170:8000/screening/v1",
+        ruleengine_base_url: str = "http://10.225.119.170:8083/ruleengine/v1",
         api_key: str = "mock-api-key",
         institution_id: str = "ULTIMATE_PAY",
         source_system: str = "TAHSEEL",
         is_sandbox: bool = True,
-        timeout: int = 10
+        timeout: int = 10,
+        base_url: str = None
     ):
-        self.base_url = base_url.rstrip("/")
+        self.screening_base_url = (base_url or screening_base_url).rstrip("/")
+        self.ruleengine_base_url = ruleengine_base_url.rstrip("/")
+        self.base_url = self.screening_base_url
         self.api_key = api_key
         self.institution_id = institution_id
         self.source_system = source_system
@@ -250,7 +254,9 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
         if self.is_sandbox:
             return self._mock_transaction_response(payload)
 
-        return self._send_http_request("/transaction/evaluate", payload)
+        fact = txn_payload.get("fact", "card_txn")
+        raw = self._send_http_request(f"/transaction/{fact}", payload, base_url=self.ruleengine_base_url)
+        return self._normalize_transaction_response(raw, payload)
 
     # =========================================================================
     # محاكاة الاستجابات (Mock Engine / Sandbox Environment)
@@ -446,15 +452,46 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
             "raw_response": raw
         }
 
-    def _send_http_request(self, endpoint: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """إرسال الطلب الفعلي عبر شبكة HTTP إلى سيرفر RiskBrains EFRM"""
+    def _normalize_transaction_response(self, raw: Dict[str, Any], request_payload: Dict[str, Any]) -> Dict[str, Any]:
+        """تطبيع استجابة محرك القواعد ومراقبة المعاملات RuleEngine (Port 8083)"""
+        decision = raw.get("decision", TxnDecision.ALLOW)
+        score = raw.get("totalScore", 0)
+        severity = raw.get("highestSeverity", ScreeningRiskBand.LOW)
+        matched_rules = raw.get("matchedRuleCount", 0)
+        signals = raw.get("signals", [])
+        alert_generated = raw.get("alertGenerated", False)
+        policy_code = raw.get("policyCode", "")
+        execution_id = raw.get("executionId")
+
+        inner_payload = request_payload.get("payload", {})
+        return {
+            "fact": raw.get("fact", inner_payload.get("fact", "card_txn")),
+            "source_txn_id": inner_payload.get("source_txn_id"),
+            "request_id": inner_payload.get("request_id"),
+            "institution_id": inner_payload.get("institution_id"),
+            "source_system": inner_payload.get("source_system"),
+            "decision": decision,
+            "risk_score": score,
+            "risk_severity": severity,
+            "policy_code": policy_code,
+            "matched_rule_count": matched_rules,
+            "alert_generated": alert_generated,
+            "signals": signals,
+            "execution_id": execution_id,
+            "raw_response": raw
+        }
+
+    def _send_http_request(self, endpoint: str, payload: Dict[str, Any], base_url: str = None) -> Dict[str, Any]:
+        """إرسال الطلب الفعلي عبر شبكة HTTP إلى سيرفر RiskBrains EFRM / RuleEngine"""
         import urllib.request
         import urllib.error
 
-        url = f"{self.base_url}{endpoint}"
+        target_base = (base_url or self.screening_base_url).rstrip("/")
+        url = f"{target_base}{endpoint}"
         headers = {
             "Content-Type": "application/json",
             "x-api-key": self.api_key,
+            "X-API-KEY": self.api_key,
             "Authorization": f"Bearer {self.api_key}",
             "X-Source-System": self.source_system,
             "X-Institution-ID": self.institution_id
