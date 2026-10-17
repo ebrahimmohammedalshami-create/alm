@@ -30,23 +30,41 @@ class KanjiEFRMClient(ISanctionsScreeningClient, ITransactionMonitoringClient):
 
     def __init__(
         self,
-        screening_base_url: str = "http://10.225.119.170:8000/screening/v1",
-        ruleengine_base_url: str = "http://10.225.119.170:8083/ruleengine/v1",
-        api_key: str = "mock-api-key",
-        institution_id: str = "ULTIMATE_PAY",
-        source_system: str = "TAHSEEL",
-        is_sandbox: bool = True,
-        timeout: int = 10,
+        screening_base_url: str = None,
+        ruleengine_base_url: str = None,
+        api_key: str = None,
+        institution_id: str = None,
+        source_system: str = None,
+        is_sandbox: bool = None,
+        timeout: int = None,
         base_url: str = None
     ):
-        self.screening_base_url = (base_url or screening_base_url).rstrip("/")
-        self.ruleengine_base_url = ruleengine_base_url.rstrip("/")
+        try:
+            from django.conf import settings
+            dj_screening = getattr(settings, 'AML_SCREENING_URL', "http://10.225.119.170:8000/screening/v1")
+            dj_ruleengine = getattr(settings, 'AML_RULEENGINE_URL', "http://10.225.119.170:8083/ruleengine/v1")
+            dj_api_key = getattr(settings, 'AML_API_KEY', "mock-api-key")
+            dj_inst = getattr(settings, 'AML_INSTITUTION_ID', "ULTIMATE_PAY")
+            dj_source = getattr(settings, 'AML_SOURCE_SYSTEM', "TAHSEEL")
+            dj_sandbox = getattr(settings, 'AML_IS_SANDBOX', True)
+            dj_timeout = getattr(settings, 'AML_TIMEOUT', 10)
+        except Exception:
+            dj_screening = "http://10.225.119.170:8000/screening/v1"
+            dj_ruleengine = "http://10.225.119.170:8083/ruleengine/v1"
+            dj_api_key = "mock-api-key"
+            dj_inst = "ULTIMATE_PAY"
+            dj_source = "TAHSEEL"
+            dj_sandbox = True
+            dj_timeout = 10
+
+        self.screening_base_url = (base_url or screening_base_url or dj_screening).rstrip("/")
+        self.ruleengine_base_url = (ruleengine_base_url or dj_ruleengine).rstrip("/")
         self.base_url = self.screening_base_url
-        self.api_key = api_key
-        self.institution_id = institution_id
-        self.source_system = source_system
-        self.is_sandbox = is_sandbox
-        self.timeout = timeout
+        self.api_key = api_key if api_key is not None else dj_api_key
+        self.institution_id = institution_id if institution_id is not None else dj_inst
+        self.source_system = source_system if source_system is not None else dj_source
+        self.is_sandbox = is_sandbox if is_sandbox is not None else dj_sandbox
+        self.timeout = timeout if timeout is not None else dj_timeout
 
     # =========================================================================
     # 1. فحص الكيان التجاري (Primary Screening - Biller / Organization)

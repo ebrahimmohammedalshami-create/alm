@@ -294,6 +294,43 @@ class TestComplianceORMModels(DjangoTestCase):
         self.assertIn("Idempotent", resp2["message"])
         self.assertEqual(AMLWebhookEvent.objects.filter(event_id="EVT-TEST-2026-9999").count(), 1)
 
+    def test_webhook_http_view(self):
+        import json
+        from django.test import RequestFactory
+        from tahseel_aml.views import aml_webhook_view, aml_health_check_view
+
+        factory = RequestFactory()
+        
+        # Test Health Check
+        health_req = factory.get('/api/aml/health/')
+        health_resp = aml_health_check_view(health_req)
+        self.assertEqual(health_resp.status_code, 200)
+        self.assertIn(b"HEALTHY", health_resp.content)
+
+        # Test Webhook HTTP View
+        event_payload = {
+            "event_type": "TRANSACTION_DECISION",
+            "event_id": "EVT-VIEW-TEST-1111",
+            "event_time": "2026-10-15T14:30:10Z",
+            "institution_id": "ULTIMATE_PAY",
+            "source_system": "PG_SWITCH",
+            "fact": "card_txn",
+            "mode": "ASYNC",
+            "source_txn_id": "TXN-VIEW-1111",
+            "decision": "BLOCK",
+            "risk_score": 900
+        }
+        req = factory.post(
+            '/api/aml/webhook/',
+            data=json.dumps(event_payload),
+            content_type='application/json'
+        )
+        resp = aml_webhook_view(req)
+        self.assertEqual(resp.status_code, 200)
+        resp_json = json.loads(resp.content.decode('utf-8'))
+        self.assertEqual(resp_json["status"], "RECEIVED")
+        self.assertEqual(resp_json["event_id"], "EVT-VIEW-TEST-1111")
+
 
 if __name__ == '__main__':
     unittest.main()

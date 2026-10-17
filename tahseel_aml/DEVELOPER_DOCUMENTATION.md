@@ -46,6 +46,8 @@ tahseel_aml/
 ├── __init__.py                 # حزمة بايثون
 ├── apps.py                     # إعدادات التطبيق (TahseelAmlConfig)
 ├── admin.py                    # لوحة الإدارة لضباط الامتثال مع أقفال الأمان
+├── views.py                    # واجهات استقبال الـ Webhooks وفحص الصحة
+├── urls.py                     # مسارات الربط الشبكي للتطبيق
 ├── DEVELOPER_DOCUMENTATION.md  # هذا الدليل التوثيقي الشامل
 │
 ├── models/                     # [طبقة البيانات - Data Layer]
@@ -523,24 +525,73 @@ class EFRMWebhookReceiverAPIView(APIView):
 
 ---
 
-## 12. دليل النشر والترحيل على السيرفر (Deployment & Migrations)
+## 12. دليل النقل والتشغيل على النظام الرسمي (Deployment & Production Setup)
 
-### الخطوة 1: نسخ المجلد
-انسخ مجلد `tahseel_aml` بالكامل وضعه داخل مشروع جانغو الخاص بمنصة تحصيل.
+### الخطوة 1: نسخ مجلد التطبيق
+انسخ مجلد `tahseel_aml/` بالكامل وضعه داخل المجلد الرئيسي لتطبيقات مشروع منصة تحصيل الرسمي.
 
 ### الخطوة 2: تفعيل التطبيق في `settings.py`
+أضف التطبيق إلى قائمة `INSTALLED_APPS`:
 ```python
 INSTALLED_APPS = [
-    # ...
+    # ... تطبيقات تحصيل الحالية ...
     'tahseel_aml.apps.TahseelAmlConfig',
 ]
 ```
 
-### الخطوة 3: إنشاء وتطبيق جداول قاعدة البيانات
+### الخطوة 3: إضافة إعدادات الربط في `settings.py` (أو ملف `.env`)
+قم بتعريف المتغيرات التالية لتمكين عميل `KanjiEFRMClient` من قراءتها تلقائياً:
+```python
+# ==============================================================================
+# إعدادات منظومة الامتثال ومكافحة غسل الأموال (AML / EFRM Integration)
+# ==============================================================================
+import os
+
+# روابط خدمات سيرفر FinFactory / RiskBrains
+AML_SCREENING_URL = os.getenv("AML_SCREENING_URL", "http://10.225.119.170:8000/screening/v1")
+AML_RULEENGINE_URL = os.getenv("AML_RULEENGINE_URL", "http://10.225.119.170:8083/ruleengine/v1")
+
+# مفتاح المصادقة الرسمي (يتم تزويده من FinFactory)
+AML_API_KEY = os.getenv("AML_API_KEY", "your-official-x-api-key")
+
+# المعرفات المعتمدة لمؤسستنا
+AML_INSTITUTION_ID = os.getenv("AML_INSTITUTION_ID", "ULTIMATE_PAY")
+AML_SOURCE_SYSTEM = os.getenv("AML_SOURCE_SYSTEM", "TAHSEEL")
+
+# وضع البيئة التجريبية: False للاتصال الحي بالسيرفر | True للمحاكاة بدون اتصال
+AML_IS_SANDBOX = os.getenv("AML_IS_SANDBOX", "True").lower() in ("true", "1")
+AML_TIMEOUT = int(os.getenv("AML_TIMEOUT", "10"))
+
+# سر توقيع الـ Webhook (اختياري للتحقق الأمني من الإشعارات الواردة)
+AML_WEBHOOK_SECRET = os.getenv("AML_WEBHOOK_SECRET", None)
+```
+
+### الخطوة 4: تفعيل مسارات الـ Webhook في `urls.py` الرئيسي للمشروع
+في ملف `urls.py` الخاص بمشروع تحصيل العام:
+```python
+from django.urls import path, include
+
+urlpatterns = [
+    # ... مسارات تحصيل الحالية ...
+    
+    # مسار موديول الامتثال واستقبال الـ Webhook:
+    # الرابط النهائي: https://tahseeltest.ultimate-pay.net/api/aml/webhook/
+    path('api/aml/', include('tahseel_aml.urls')),
+]
+```
+
+### الخطوة 5: تطبيق ترحيل قاعدة البيانات (Database Migrations)
 ```bash
-python manage.py makemigrations tahseel_aml
+# تطبيق الترحيلات المنشأة مسبقاً
 python manage.py migrate tahseel_aml
 ```
 
-### الخطوة 4: التحقق
-شغّل السيرفر وافتح لوحة الإدارة (`/admin/`) وستجد قسم **Tahseel AML/CFT Compliance** مفعلاً بجميع الجداول والشارات الأمنية.
+### الخطوة 6: تشغيل الاختبارات للتأكد من سلامة التثبيت
+```bash
+python manage.py test tahseel_aml.tests.test_compliance
+```
+يجب أن تظهر النتيجة: `Ran 13 tests in 0.05s - OK`.
+
+### الخطوة 7: التحقق من لوحة الإدارة
+افتح لوحة الإدارة (`/admin/`) بحساب مسؤول، وتأكد من ظهور قسم **Tahseel AML/CFT Compliance** مع كامل الجداول وشارات الحالة والقيود الأمنية لعدم الحذف (Immutability).
+
